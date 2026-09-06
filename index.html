@@ -1,145 +1,276 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Menú Luicelato</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes" />
+  <title>Menú - Luicelato</title>
   
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-  
+  <!-- Estilos base para visualización móvil -->
   <style>
-    body, html {
-      margin: 0; padding: 0; background-color: #2c2c2c; height: 100vh;
-      display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
     }
     
-    /* Toolbar pinned to the top */
-    #toolbar {
-      background-color: #1a1a1a; padding: 12px; display: flex; justify-content: center;
-      gap: 12px; align-items: center; flex-wrap: wrap; z-index: 10;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3); color: white;
+    /* Barra de herramientas superior flotante */
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      width: 100%;
+      max-width: 600px;
+      background: rgba(28, 28, 30, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
     
-    button {
-      background-color: #4a4a4a; color: white; border: none; padding: 10px 16px;
-      border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer;
-      /* Improves tap response on touch screens */
-      touch-action: manipulation; 
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
-    button:active { background-color: #666; }
-    button:disabled { background-color: #333; color: #777; cursor: not-allowed; }
-    
-    .page-info { font-size: 15px; font-weight: 500; min-width: 90px; text-align: center; }
-    
-    /* Scrollable container for the PDF */
-    #canvas-container {
-      flex-grow: 1; overflow: auto; display: flex; justify-content: center;
-      align-items: flex-start; padding: 15px;
+    .btn {
+      background: #2c2c2e;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s ease, transform 0.1s ease;
     }
     
+    .btn:active {
+      background: #3a3a3c;
+      transform: scale(0.96);
+    }
+    
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    .page-info {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e5e5ea;
+      min-width: 70px;
+      text-align: center;
+    }
+
+    /* Contenedor del PDF */
+    #pdf-wrapper {
+      width: 100%;
+      max-width: 600px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 8px;
+      overflow-x: auto;
+    }
+
+    .canvas-container {
+      position: relative;
+      margin-bottom: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      overflow: hidden;
+      background-color: #1c1c1e;
+    }
+
+    /* Canvas adaptable */
     canvas {
-      box-shadow: 0 8px 16px rgba(0,0,0,0.5); background-color: white;
-      /* Ensures sharp rendering */
-      image-rendering: -webkit-optimize-contrast; 
+      display: block;
+      margin: 0 auto;
     }
-    
-    .error-msg { color: white; text-align: center; margin-top: 40px; font-size: 18px; }
-    .error-msg a { color: #4da6ff; text-decoration: none; font-weight: bold; }
+
+    /* Indicador de carga */
+    #loading {
+      margin-top: 40px;
+      font-size: 16px;
+      color: #8e8e93;
+    }
   </style>
+
+  <!-- PDF.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
-  <div id="toolbar">
-    <button id="zoom-out" aria-label="Alejar"> - </button>
-    <button id="zoom-in" aria-label="Acercar"> + </button>
-    <button id="prev" aria-label="Página Anterior">Anterior</button>
-    <span class="page-info">Pág <span id="page_num"></span> / <span id="page_count"></span></span>
-    <button id="next" aria-label="Página Siguiente">Siguiente</button>
+  <!-- Barra de control -->
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <button class="btn" id="prev-page" disabled>‹ Ant</button>
+      <span class="page-info" id="page-num-display">Pág 1</span>
+      <button class="btn" id="next-page" disabled>Sig ›</button>
+    </div>
+    
+    <div class="toolbar-group">
+      <button class="btn" id="zoom-out">−</button>
+      <button class="btn" id="zoom-in">+</button>
+    </div>
   </div>
 
-  <div id="canvas-container">
-    <canvas id="pdf-render"></canvas>
+  <!-- Estado de carga -->
+  <div id="loading">Cargando menú...</div>
+
+  <!-- Visor del PDF -->
+  <div id="pdf-wrapper">
+    <div class="canvas-container" id="canvas-container" style="display: none;">
+      <canvas id="pdf-canvas"></canvas>
+    </div>
   </div>
 
   <script>
-    // --- Configuration ---
-    const url = 'menu.pdf'; // Ensure your PDF is named exactly this
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    // Asignar worker de PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    let pdfDoc = null,
-        pageNum = 1,
-        pageIsRendering = false,
-        pageNumIsPending = null,
-        scale = 2, // Default zoom level for mobile
-        canvas = document.getElementById('pdf-render'),
-        ctx = canvas.getContext('2d');
+    // Ruta a tu archivo PDF en el repositorio
+    const url = 'menu.pdf';
 
-    // Render the page
-    const renderPage = num => {
-      pageIsRendering = true;
-      
-      pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+    let pdfDoc = null;
+    let pageNum = 1;
+    let pageRendering = false;
+    let pageNumPending = null;
+    let userScale = 1.0; // Factor de zoom manual
+    
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('pdf-wrapper');
+    const loadingEl = document.getElementById('loading');
+    const canvasContainer = document.getElementById('canvas-container');
 
-        const renderCtx = { canvasContext: ctx, viewport: viewport };
+    /**
+     * Renderiza una página utilizando la densidad de píxeles nativa del dispositivo (HiDPI / Retina)
+     */
+    function renderPage(num) {
+      pageRendering = true;
+
+      pdfDoc.getPage(num).then(function(page) {
+        // 1. Obtener densidad real de pantalla del celular (ej: 2.0 o 3.0 en iPhone)
+        const dpr = window.devicePixelRatio || 1;
+
+        // 2. Calcular ancho disponible en el contenedor
+        const paddingOffset = 16;
+        const availableWidth = Math.min(container.clientWidth - paddingOffset, 580);
+
+        // 3. Obtener el tamaño original del PDF sin escalar
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
         
-        page.render(renderCtx).promise.then(() => {
-          pageIsRendering = false;
-          if (pageNumIsPending !== null) {
-            renderPage(pageNumIsPending);
-            pageNumIsPending = null;
+        // 4. Calcular escala base ajustada al ancho de pantalla
+        const fitScale = availableWidth / unscaledViewport.width;
+        const totalScale = fitScale * userScale;
+
+        // 5. Crear el viewport base para pantalla
+        const viewport = page.getViewport({ scale: totalScale });
+
+        // 6. MULTIPLICAR RESOLUCIÓN INTERNA POR EL DPR (Solución para nitidez HiDPI/Retina)
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+
+        // 7. AJUSTAR TAMAÑO VISUAL EN CSS (mantiene la escala en pantalla sin distorsionar)
+        canvas.style.width = Math.floor(viewport.width) + 'px';
+        canvas.style.height = Math.floor(viewport.height) + 'px';
+
+        // 8. Escalar el contexto de dibujo para coincidir con la resolución del canvas
+        ctx.scale(dpr, dpr);
+
+        const renderContext = {
+          canvasContext: ctx,
+          viewport: viewport
+        };
+
+        const renderTask = page.render(renderContext);
+
+        renderTask.promise.then(function() {
+          pageRendering = false;
+          if (pageNumPending !== null) {
+            renderPage(pageNumPending);
+            pageNumPending = null;
           }
         });
-        
-        document.getElementById('page_num').textContent = num;
       });
-    };
 
-    // Check for pending page renders
-    const queueRenderPage = num => {
-      if (pageIsRendering) { pageNumIsPending = num; } 
-      else { renderPage(num); }
-    };
+      // Actualizar interfaz
+      document.getElementById('page-num-display').textContent = `Pág ${num} / ${pdfDoc.numPages}`;
+      document.getElementById('prev-page').disabled = (num <= 1);
+      document.getElementById('next-page').disabled = (num >= pdfDoc.numPages);
+    }
 
-    // Button functionalities
-    document.getElementById('prev').addEventListener('click', () => {
+    function queueRenderPage(num) {
+      if (pageRendering) {
+        pageNumPending = num;
+      } else {
+        renderPage(num);
+      }
+    }
+
+    function onPrevPage() {
       if (pageNum <= 1) return;
       pageNum--;
       queueRenderPage(pageNum);
-    });
+    }
 
-    document.getElementById('next').addEventListener('click', () => {
+    function onNextPage() {
       if (pageNum >= pdfDoc.numPages) return;
       pageNum++;
       queueRenderPage(pageNum);
-    });
+    }
 
-    document.getElementById('zoom-in').addEventListener('click', () => {
-      if (scale >= 3.0) return; // Max zoom limit
-      scale += 0.25;
+    function onZoomIn() {
+      if (userScale >= 2.5) return;
+      userScale += 0.25;
       queueRenderPage(pageNum);
-    });
+    }
 
-    document.getElementById('zoom-out').addEventListener('click', () => {
-      if (scale <= 0.5) return; // Min zoom limit
-      scale -= 0.25;
+    function onZoomOut() {
+      if (userScale <= 0.75) return;
+      userScale -= 0.25;
       queueRenderPage(pageNum);
+    }
+
+    // Event listeners para los botones
+    document.getElementById('prev-page').addEventListener('click', onPrevPage);
+    document.getElementById('next-page').addEventListener('click', onNextPage);
+    document.getElementById('zoom-in').addEventListener('click', onZoomIn);
+    document.getElementById('zoom-out').addEventListener('click', onZoomOut);
+
+    // Re-renderizar si el usuario gira la pantalla
+    window.addEventListener('resize', () => {
+      if (pdfDoc) {
+        queueRenderPage(pageNum);
+      }
     });
 
-    // Fetch the PDF Document
-    pdfjsLib.getDocument(url).promise.then(pdfDoc_ => {
+    // Cargar el documento PDF
+    pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
       pdfDoc = pdfDoc_;
-      document.getElementById('page_count').textContent = pdfDoc.numPages;
+      loadingEl.style.display = 'none';
+      canvasContainer.style.display = 'block';
       renderPage(pageNum);
-    }).catch(err => {
-      // Fallback if the PDF fails to load or the file name is wrong
-      document.getElementById('canvas-container').innerHTML = 
-        `<div class="error-msg">No se pudo cargar el menú interactivo.<br><br>
-        <a href="menu.pdf" target="_blank">Toca aquí para abrir el PDF directamente</a></div>`;
-      console.error('PDF Load Error: ', err);
+    }).catch(function(error) {
+      loadingEl.textContent = 'Error al cargar el menú. Asegúrate de que el archivo PDF se llame "menu.pdf".';
+      console.error('Error cargando PDF:', error);
     });
   </script>
 </body>
